@@ -1,0 +1,66 @@
+---
+title: "Update blast db from sqlite"
+author: "GergoPalfalvi"
+date: "8/31/2017"
+output: html_document
+---
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+source("/home/peegee/primeR/helper.R")
+```
+
+```{r connect}
+con <- dbConnect(SQLite(), "/home/peegee/primeR/primers.sqlite")
+```
+
+```{r initial_fasta}
+
+for (i in seq_len(con %>% tbl("primers") %>% as_data_frame() %>% nrow()) ){
+  con %>% 
+    tbl("primers") %>% 
+    as_data_frame() %>% 
+    .[i,] %>% 
+    select(ID, primer_name, sequence) -> new_line
+  write_lines(x =paste(">ID_", new_line$ID, "_name_", new_line$primer_name, "\n", new_line$sequence, sep = ""),
+              path = "/home/peegee/primeR/primers.fasta", 
+              append = TRUE)
+}
+```
+
+
+From initial, better to append only the newly added primers to the fasta.
+
+On submission, table is transfered to update fasta AND db simultaneously. Fasta change should trigger database building based on timestamp (reactivePoll)
+
+
+```{r reactive_database_update, eval = FALSE}
+
+reactivePoll(intervalMillis = 1000,
+            session = session, 
+            checkFunc = function() {
+              if (file.exists("primers.fasta")) {
+                as.numeric(file.info("primers.fasta")$mtime[1])
+              } else {
+                  ""}
+              },
+            valueFunc = function() {
+              create_blast_db("primers.fasta", "nucl")
+            })
+
+```
+
+
+Get next IDs for database
+```{r}
+
+GetNextId <- function() {
+  if (exists("responses") && nrow(responses) > 0) {
+    max(as.integer(rownames(responses))) + 1
+  } else {
+    return (1)
+  }
+}
+```

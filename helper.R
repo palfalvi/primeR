@@ -216,7 +216,7 @@ create_blast_db <- function(input, dbtype = "nucl") {
       "-in", input,
       "-dbtype", dbtype,
       "-parse_seqids"),
-    stdout = paste("blast_db_update", as.numeric(Sys.time), ".out", sep=""),
+    stdout = paste("blast_db_update", ".out", sep=""),
     wait = TRUE
     )
   

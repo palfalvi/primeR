@@ -15,6 +15,7 @@ library(tidyverse)
 shinyServer(function(input, output, global, session) {
   
   statusCode <- reactiveValues()
+  statusCode$code <- 0
   ## Hide submission box~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   shinyjs::hide("box1")
   
@@ -57,7 +58,7 @@ shinyServer(function(input, output, global, session) {
     shinyjs::hide("box1")
     check_data <- NULL
     file1 <- NULL
-    statusCode$code = 0
+    statusCode$code <- 0
   })    
  
   ##Reset manual table input~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
@@ -68,7 +69,7 @@ shinyServer(function(input, output, global, session) {
     )
     check_data <- NULL
     shinyjs::hide("box1")
-    statusCode$code = 0
+    statusCode$code <- 0
   })   
   
   ##Disable BLAST search without a fasta sequence is provided~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,7 +113,7 @@ shinyServer(function(input, output, global, session) {
      DT::renderDataTable(
      check_data %>% DT::datatable(), server = TRUE)
    shinyjs::show("box1")
-   statusCode$code = 1
+   statusCode$code <- 1
    }
    )
    
@@ -140,11 +141,13 @@ shinyServer(function(input, output, global, session) {
                              footer = NULL, 
                              size = "l"))
        return()
-     } else {}
-     output$check_table <- 
-       DT::renderDataTable(
-         check_data,  server = TRUE)
-     statusCode$code = 1
+     } else {
+       statusCode$code <- 1
+       output$check_table <- 
+          DT::renderDataTable(
+            check_data,  server = TRUE)
+     
+     }
    }
    )
    
@@ -156,16 +159,32 @@ shinyServer(function(input, output, global, session) {
    } else if (statusCode$code == 1){
      "green"
    } else {
-     "aqua"
+     "yellow"
    }
      })
    
    statusText <- reactive({
-     
+     if (stringr::str_length(input$submit_user) < 3){
+       "Please enter a valid name"
+     } else if (statusCode$code == 1){
+       "Proceed to upload"
+     } else {
+       "Please upload a file or enter primers manually"
+     }
+   })
+   
+   statusTitle <- reactive({
+     if (stringr::str_length(input$submit_user) < 3){
+       "Enter name"
+     } else if (statusCode$code == 1){
+       "Primers validated"
+     } else {
+       "Enter primer info"
+     }
    })
    
   output$status <- renderUI(
-    valueBox("Let's start with your name", icon = icon("hand-o-left"), color = statuscolor(), value = "Start", width = 12)
+    valueBox(subtitle = statusText(), icon = icon("hand-o-left"), color = statuscolor(), value = statusTitle(), width = 12)
   )
   
   
@@ -187,6 +206,60 @@ shinyServer(function(input, output, global, session) {
     removeModal()
     showNotification( paste("Finished primer submitted:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
                             type = "error", duration = 10)
+    #Add finished comment to primer
+  })
+  
+  observeEvent(input$cancel_finished, {
+    removeModal()
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  
+  ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  observeEvent(input$report_reordered, {
+    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+                          footer = NULL, size = "l", easyClose = FALSE,  {
+                            tagList( 
+                              HTML("WARNING! Your decisions will have consequences!"),
+                              br(),
+                              actionButton("action_finished2", "Confirm", icon = icon("refresh")),
+                              modalButton("Cancel", icon = icon("times")))
+                            
+                          }))
+  })
+  
+  observeEvent(input$action_finished2, {
+    removeModal()
+    showNotification( paste("Reorder primer submitted:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
+                      type = "warning", duration = 10)
+    #Create new entry for reordered primer
+  })
+  
+  observeEvent(input$cancel_finished, {
+    removeModal()
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+  
+  ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  observeEvent(input$modify_primer_comment, {
+    showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+                          footer = NULL, size = "l", easyClose = FALSE,  {
+                            tagList( 
+                              HTML("New comment: "),
+                              input$new_comment,
+                              br(),
+                              HTML("WARNING! Your decisions will have consequences!"),
+                              br(),
+                              actionButton("action_finished3", "Confirm", icon = icon("refresh")),
+                              modalButton("Cancel", icon = icon("times")))
+                            
+                          }))
+  })
+  
+  observeEvent(input$action_finished3, {
+    removeModal()
+    showNotification( paste("Updated comment:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
+                      type = "warning", duration = 10)
+    #Create new entry for reordered primer
   })
   
   observeEvent(input$cancel_finished, {
@@ -194,4 +267,23 @@ shinyServer(function(input, output, global, session) {
   })
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
+  
+  ##Update blast db based on fasta timestamp~~~~~~~~~~~~~~~~~~~~~
+  
+  pollUpdate <- reactivePoll(intervalMillis = 1000,
+               session = session, 
+               checkFunc = function() {
+                 if (file.exists("primers.fasta")) {
+                   as.numeric(file.info("primers.fasta")$mtime[1])
+                 } else {
+                   ""}
+               },
+               valueFunc = function() {
+                 file.info("primers.fasta")$mtime[1]
+               })
+  
+  observeEvent(pollUpdate(), {
+    create_blast_db("primers.fasta", "nucl")
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 })

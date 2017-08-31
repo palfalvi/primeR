@@ -1,0 +1,42 @@
+---
+title: "Creating SQLite database from csv file of primers"
+output: html_notebook
+---
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+```
+
+
+Proper columns in future:
+- ID (primary key?, autoincrement)
+- primer_name
+- sequence
+- concentration
+- name #who ordered
+- date
+- comments
+- empty #TRUE/FALSE
+
+```{r open_csv}
+all_primers <- read_csv("primers.csv", col_names = c("ID", "primer_name", "sequence", "concentration"), skip = 1, trim_ws = TRUE, na = "NA")
+```
+
+```{r connect}
+con <- dbConnect(SQLite(), "./../../primers.sqlite")
+```
+
+```{r overwrite}
+dbWriteTable(con, name="primers", value = all_primers, overwrite = TRUE, field)
+```
+
+```{r check}
+dbGetQuery(con, "SELECT * FROM primers LIMIT 5;")
+```
+
+
+```{r disconnect}
+dbDisconnect(con)
+```
