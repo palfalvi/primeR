@@ -38,7 +38,11 @@ shinyUI(function(request){
                     status = "primary", 
                     solidHeader = TRUE,
                     width = 8,
+<<<<<<< HEAD
                     textAreaInput("blast_query", "Fasta query input:", cols = 10, rows = 8, resize = "vertical", placeholder = paste(">FASTA\n;tcagatacagatagaca")),
+=======
+                    textAreaInput("blast_query", "Fasta query input:", cols = 10, rows = 8, resize = "vertical", placeholder = paste(">FASTA&nbsp;tcagatacagatagaca")),
+>>>>>>> 000c544d63cd53d9469b5e02b2c5d93895a76e21
                     actionButton("primer_search", "Search")
                   ),
                   box(
