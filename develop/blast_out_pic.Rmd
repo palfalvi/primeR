@@ -1,0 +1,18 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Highcharter graph for blastout visualization
+
+```{r}
+library(highcharter)
+library(tidyverse)
+
+read_csv("develop/blast_exapmle.csv", col_names = FALSE) -> blastout
+```
+
+
+```{r}
+
+```
