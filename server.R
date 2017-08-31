@@ -286,4 +286,20 @@ shinyServer(function(input, output, global, session) {
     create_blast_db("primers.fasta", "nucl")
   })
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  
+  ##Plan~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  # check_data contains new primers
+  # when submit button (input$submit_new) was triggered :
+  # Assign new IDs for primers
+  # Append data to fasta file
+  # Append data to sqlite
+  # Give feedback table/text on new IDs and success of submission
+  
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  
+  
+  
 })
