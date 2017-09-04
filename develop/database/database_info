@@ -1,0 +1,34 @@
+# Database infos
+tables:
+-ID (autoincrement) 
+-primer_name
+-sequence
+-concentration
+-comment
+-name (who ordered)
+-empty (true/false)
+
+
+How to make autoincrement which is out of rownumber?
+there is 17 primers gap
+make empty entries to them?
+
+
+for (i in seq_len(all_primers %>% tail(1) %>% select(No.) %>% as.numeric())) {
+  if (i == 1) {
+    primers <- all_primers[i,]
+  } else if (all_primers %>% filter(No. == i) %>% nrow() %>% as.logical()) {
+    primers <- primers %>% rbind(all_primers %>% filter(No. == i))
+  } else {
+    primers <- primers %>% rbind(c(i, NA, NA, NA, NA))
+  } 
+}
+
+
+New row numbers:
+(nrow(primers)+1):(nrow(primers)+nrow(check_data))
+Add this column as the first column of check_data before appending to the database.
+
+Addition:
+Update fasta
+Upate DT::data.table on browsing page

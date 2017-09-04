@@ -21,7 +21,7 @@ Proper columns in future:
 - empty #TRUE/FALSE
 
 ```{r open_csv}
-all_primers <- read_csv("primers.csv", col_names = c("ID", "primer_name", "sequence", "concentration"), skip = 1, trim_ws = TRUE, na = "NA")
+all_primers <- read_csv("./../../primers.csv", col_names = c("ID", "primer_name", "sequence", "concentration"), skip = 1, trim_ws = TRUE, na = "NA")
 ```
 
 ```{r connect}

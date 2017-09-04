@@ -29,13 +29,17 @@ shinyServer(function(input, output, global, session) {
     
     
   ## Data table to browse primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  output$browse_primers <- DT::renderDataTable(datatable(all_primers) %>% 
-                                                 formatStyle(columns = 'stock conc.' ,
-                                                             target = "row",
-                                                             background = styleColorBar(all_primers$`stock conc.`, angle = -90, color = 'lightblue'),
-                                                             backgroundSize = '98% 88%',
-                                                             backgroundRepeat = 'no-repeat',
-                                                             backgroundPosition = 'center'), 
+  all_primers <- shiny::reactiveFileReader(1000,
+                            session,
+                            filePath = "primers.sqlite",
+                            readFunc = function(x) {
+                              con <- dbConnect(SQLite(), x)
+                              con %>% tbl(primers) %>% as_data_frame() %>% table_out
+                              dbDisconnect(con)
+                              return(table_out)
+                            })
+  
+  output$browse_primers <- DT::renderDataTable(datatable(all_primers), 
                                                server = TRUE)
   
   
@@ -188,6 +192,37 @@ shinyServer(function(input, output, global, session) {
   )
   
   
+  ##Update database with submitted primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  observeEvent(input$submit_new, {
+    
+    showModal(modalDialog(title = paste("Confirm primer uploading", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+                          footer = NULL, size = "l", easyClose = FALSE,  {
+                            tagList( 
+                              HTML("WARNING! Your decisions will have consequences!"),
+                              br(),
+                              actionButton("upload_new", "Confirm", icon = icon("upload")),
+                              modalButton("Cancel", icon = icon("times")))
+                            
+                          }))
+  })
+  
+  observeEvent(input$upload_new, {
+    removeModal()
+    showNotification( paste("Primer submitted:\n", "(id:", ")"),
+                      type = "message", duration = 10)
+    
+    con <- dbConnect(SQLite(), "./../../primers.sqlite")
+    dbWriteTable(con, "primers", check_data %>% select(-comm), append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
+    con %>% dbDisconnect()
+    
+    ## Needs proper table format
+    ## Needs output for new ids and primers
+  })
+    
+    
+
+  
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   ##Report finished primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$finished_primer_btn, {
