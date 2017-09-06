@@ -22,7 +22,7 @@ shinyServer(function(input, output, global, session) {
   ## ValueBox~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   output$empty_info <- renderValueBox({
     valueBox(subtitle = paste( "ID:", input$empty_primers),
-             value = all_primers[all_primers$`No.` == input$empty_primers,2],
+             value = all_primers() %>% filter(ID == input$empty_primers) %>% .[,2],
               icon = icon(name = "flask", lib = "font-awesome"), width = 12
               )
   })
@@ -34,19 +34,19 @@ shinyServer(function(input, output, global, session) {
                             filePath = "primers.sqlite",
                             readFunc = function(x) {
                               con <- dbConnect(SQLite(), x)
-                              con %>% tbl(primers) %>% as_data_frame() %>% table_out
+                              con %>% tbl("primers") %>% as_data_frame() -> table_out
                               dbDisconnect(con)
                               return(table_out)
                             })
   
-  output$browse_primers <- DT::renderDataTable(datatable(all_primers), 
+  output$browse_primers <- DT::renderDataTable(datatable(all_primers()), 
                                                server = TRUE)
   
   
   ##Disable file uploading without proper username and a file uploaded~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   disable("file_upload")
   observe({
-     if (!is_null(input$file_primer_update) && nchar(input$submit_user) > 3 ) { 
+     if (!is.null(input$file_primer_update) && nchar(input$submit_user) > 3 ) { 
        # Change the following line for more examples
        shinyjs::enable("file_upload")
      } else {
@@ -60,7 +60,7 @@ shinyServer(function(input, output, global, session) {
   observeEvent(input$file_reset, {
     shinyjs::reset("file_primer_update")
     shinyjs::hide("box1")
-    check_data <- NULL
+    data$check <- NULL
     file1 <- NULL
     statusCode$code <- 0
   })    
@@ -71,7 +71,7 @@ shinyServer(function(input, output, global, session) {
     output$manual_input <- renderRHandsontable(
       rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
     )
-    check_data <- NULL
+    data$checm <- NULL
     shinyjs::hide("box1")
     statusCode$code <- 0
   })   
@@ -101,11 +101,14 @@ shinyServer(function(input, output, global, session) {
      rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
    )
    
+   data <- reactiveValues()
+   
    ## Check manual input ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    observeEvent(input$manual_check, {
-     check_data <- hot_to_r(input$manual_input) %>% isolate() %>% as_tibble() %>% filter(name != "", seq != "", conc > 0)
+     data$check <- hot_to_r(input$manual_input) %>% isolate() %>% as_tibble() %>% filter(name != "", seq != "", conc > 0)
      
-     if(nrow(check_data) == 0) {
+     
+     if(nrow(data$check) == 0) {
        showModal(modalDialog(title = "No or invalid entries!",
                              "Please make sure you entered at least one valid line with name, sequence and concentration.",
                              easyClose = TRUE,
@@ -115,7 +118,7 @@ shinyServer(function(input, output, global, session) {
      } else {}
    output$check_table <- 
      DT::renderDataTable(
-     check_data %>% DT::datatable(), server = TRUE)
+     data$check %>% DT::datatable(), server = TRUE)
    shinyjs::show("box1")
    statusCode$code <- 1
    }
@@ -134,11 +137,12 @@ shinyServer(function(input, output, global, session) {
        return()
      } else {
        file1 <- input$file_primer_update
-       check_data <- read_csv(file1$datapath, col_names = c("a", "name", "seq", "conc", "comm"), skip = 1) %>% filter(name != "", seq != "", conc > 0, !is.null(conc))
+       data$check <- read_csv(file1$datapath, col_names = c("a", "name", "seq", "conc", "comm"), skip = 1) %>% filter(name != "", seq != "", conc > 0, !is.null(conc))
+       update_table <- reactive({data$check})
        shinyjs::show("box1")
     }
      
-     if(nrow(check_data) == 0) {
+     if(nrow(data$check) == 0) {
        showModal(modalDialog(title = "No or invalid entries!",
                              "Please make sure you entered at least one valid line with name, sequence and concentration.",
                              easyClose = TRUE,
@@ -149,7 +153,7 @@ shinyServer(function(input, output, global, session) {
        statusCode$code <- 1
        output$check_table <- 
           DT::renderDataTable(
-            check_data,  server = TRUE)
+            data$check,  server = TRUE)
      
      }
    }
@@ -195,7 +199,7 @@ shinyServer(function(input, output, global, session) {
   ##Update database with submitted primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$submit_new, {
     
-    showModal(modalDialog(title = paste("Confirm primer uploading", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm primer uploading", " ID later ", "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("WARNING! Your decisions will have consequences!"),
@@ -207,16 +211,38 @@ shinyServer(function(input, output, global, session) {
   })
   
   observeEvent(input$upload_new, {
+    
     removeModal()
     showNotification( paste("Primer submitted:\n", "(id:", ")"),
                       type = "message", duration = 10)
     
-    con <- dbConnect(SQLite(), "./../../primers.sqlite")
-    dbWriteTable(con, "primers", check_data %>% select(-comm), append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
+    con <- dbConnect(SQLite(), "primers.sqlite")
+    dbWriteTable(con, "primers", data$check %>% select(-comm) %>% mutate(ID = 0, 
+                                                                         primer_name = name,
+                                                                         sequence = seq,
+                                                                         concentration = conc) %>%
+                   select(ID, primer_name, sequence, concentration), append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
     con %>% dbDisconnect()
     
+    write_file(x = paste(">", data$check$name, "\n",
+                         data$check$seq, sep = ""), 
+               path = "primers.fasta", 
+               append = TRUE)
+    
+    shinyjs::reset("file_primer_update")
+    shinyjs::hide("box1")
+    data$check <- NULL
+    file1 <- NULL
+    statusCode$code <- 0
+    shinyjs::reset("manual_input")
+    output$manual_input <- renderRHandsontable(
+      rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
+    )
+    
+    ## Append to fasta file
+    
     ## Needs proper table format
-    ## Needs output for new ids and primers
+    ## Needs output for new ids and primers 
   })
     
     
@@ -226,7 +252,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report finished primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$finished_primer_btn, {
-    showModal(modalDialog(title = paste("Confirm finished primer", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm finished primer", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
       HTML("WARNING! Your decisions will have consequences!"),
@@ -239,7 +265,7 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished, {
     removeModal()
-    showNotification( paste("Finished primer submitted:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
+    showNotification( paste("Finished primer submitted:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                             type = "error", duration = 10)
     #Add finished comment to primer
   })
@@ -251,7 +277,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$report_reordered, {
-    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("WARNING! Your decisions will have consequences!"),
@@ -264,7 +290,7 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished2, {
     removeModal()
-    showNotification( paste("Reorder primer submitted:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
+    showNotification( paste("Reorder primer submitted:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                       type = "warning", duration = 10)
     #Create new entry for reordered primer
   })
@@ -276,7 +302,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$modify_primer_comment, {
-    showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("New comment: "),
@@ -292,7 +318,7 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished3, {
     removeModal()
-    showNotification( paste("Updated comment:\n", all_primers[all_primers$`No.` == input$empty_primers,2], "(id:", input$empty_primers, ")"),
+    showNotification( paste("Updated comment:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                       type = "warning", duration = 10)
     #Create new entry for reordered primer
   })
@@ -306,7 +332,7 @@ shinyServer(function(input, output, global, session) {
   ##Update blast db based on fasta timestamp~~~~~~~~~~~~~~~~~~~~~
   
   pollUpdate <- reactivePoll(intervalMillis = 1000,
-               session = session, 
+               session = session,
                checkFunc = function() {
                  if (file.exists("primers.fasta")) {
                    as.numeric(file.info("primers.fasta")$mtime[1])
@@ -316,7 +342,7 @@ shinyServer(function(input, output, global, session) {
                valueFunc = function() {
                  file.info("primers.fasta")$mtime[1]
                })
-  
+
   observeEvent(pollUpdate(), {
     create_blast_db("primers.fasta", "nucl")
   })
