@@ -23,8 +23,8 @@ for (i in seq_len(con %>% tbl("primers") %>% as_data_frame() %>% nrow()) ){
     tbl("primers") %>% 
     as_data_frame() %>% 
     .[i,] %>% 
-    select(ID, primer_name, sequence) -> new_line
-  write_lines(x =paste(">ID_", new_line$ID, "_name_", new_line$primer_name, "\n", new_line$sequence, sep = ""),
+    select(id, sequence) -> new_line
+  write_lines(x =paste(">", new_line$id, "\n", new_line$sequence, sep = ""),
               path = "/home/peegee/primeR/primers.fasta", 
               append = TRUE)
 }

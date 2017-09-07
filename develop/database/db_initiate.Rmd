@@ -11,7 +11,7 @@ library(dbplyr)
 
 
 Proper columns in future:
-- ID (primary key?, autoincrement)
+- id (primary key?, autoincrement)
 - primer_name
 - sequence
 - concentration
@@ -21,7 +21,29 @@ Proper columns in future:
 - empty #TRUE/FALSE
 
 ```{r open_csv}
-all_primers <- read_csv("./../../primers.csv", col_names = c("ID", "primer_name", "sequence", "concentration"), skip = 1, trim_ws = TRUE, na = "NA")
+all_primers <- read_csv("primers.csv", col_names = c("id", 
+                                                     "primer_name", 
+                                                     "sequence", 
+                                                     "concentration"), 
+                        skip = 1, trim_ws = TRUE, na = "NA") %>%
+  mutate(concentration = ifelse(is.na(concentration), yes = 0, no = concentration),
+         name = "Nobody",
+         date = lubridate::today(),
+         comments = " ",
+         empty = TRUE) %>%
+  select(id,
+         primer_name,
+         sequence,
+         concentration,
+         comments,
+         date,
+         name,
+         empty
+         )
+
+all_primers <-
+  all_primers %>% 
+  anti_join(all_primers[duplicated(all_primers$id),] )
 ```
 
 ```{r connect}
@@ -29,7 +51,24 @@ con <- dbConnect(SQLite(), "./../../primers.sqlite")
 ```
 
 ```{r overwrite}
-dbWriteTable(con, name="primers", value = all_primers, overwrite = TRUE, field)
+dbGetQuery(con, "CREATE TABLE primers
+(
+  id INTEGER PRIMARY KEY, -- Autoincrement
+  primer_name TEXT,
+  sequence TEXT,
+  concentration REAL,
+  comments TEXT,
+  date TEXT,
+  name TEXT,
+  empty INTEGER
+)")
+
+# dbWriteTable(con, 
+#              name="primers", 
+#              value = all_primers, 
+#              overwrite = TRUE)
+
+dbWriteTable(con, "primers", all_primers, append = TRUE)
 ```
 
 ```{r check}

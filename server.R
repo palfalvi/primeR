@@ -34,7 +34,7 @@ shinyServer(function(input, output, global, session) {
                             filePath = "primers.sqlite",
                             readFunc = function(x) {
                               con <- dbConnect(SQLite(), x)
-                              con %>% tbl("primers") %>% as_data_frame() -> table_out
+                              con %>% tbl("primers") %>% as_data_frame() %>% mutate(date = lubridate::as_date(date %>% as.numeric())) -> table_out
                               dbDisconnect(con)
                               return(table_out)
                             })
@@ -217,17 +217,44 @@ shinyServer(function(input, output, global, session) {
                       type = "message", duration = 10)
     
     con <- dbConnect(SQLite(), "primers.sqlite")
-    dbWriteTable(con, "primers", data$check %>% select(-comm) %>% mutate(ID = 0, 
-                                                                         primer_name = name,
-                                                                         sequence = seq,
-                                                                         concentration = conc) %>%
-                   select(ID, primer_name, sequence, concentration), append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
+    dbWriteTable(con, "primers", data$check %>% as_data_frame() %>% 
+                   mutate(primer_name = name,
+                          sequence = seq,
+                          concentration = conc,
+                          comments = comm,
+                          date = lubridate::today(),
+                          name = isolate(input$submit_user),
+                          empty = 0) %>%
+                   select(primer_name, sequence, concentration, comments, date, name, empty), 
+                 append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
+    
+    data$new_primers <- con %>% 
+      tbl("primers") %>% 
+      as_data_frame() %>%
+      semi_join(data$check %>% 
+                  as_data_frame(), by = c("primer_name" = "name",
+                                          "sequence" = "seq",
+                                          "concentration" = "conc"))
+    
     con %>% dbDisconnect()
     
-    write_file(x = paste(">", data$check$name, "\n",
-                         data$check$seq, sep = ""), 
-               path = "primers.fasta", 
-               append = TRUE)
+    
+    for (line in 1:nrow(data$check)) {
+      write_file(x = paste("\n>", data$check$name[line], "\n",
+                           data$check$seq[line], sep = ""),
+                 path = "primers.fasta",
+                 append = TRUE)
+    }
+    
+    output$new_primers <- renderDataTable(data$new_primers %>% DT::datatable())
+    
+    # data$check %>% 
+    #   as_data_frame() %>%
+    #   glue::glue_data('\n>{name}\n{seq}') %>%
+    #   rlang::as_character() %>%
+    #   write_file(path = "primers.fasta",
+    #              append = TRUE)
+   
     
     shinyjs::reset("file_primer_update")
     shinyjs::hide("box1")
@@ -239,7 +266,7 @@ shinyServer(function(input, output, global, session) {
       rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
     )
     
-    ## Append to fasta file
+    ## Append to fasta file with glue?
     
     ## Needs proper table format
     ## Needs output for new ids and primers 
@@ -252,7 +279,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report finished primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$finished_primer_btn, {
-    showModal(modalDialog(title = paste("Confirm finished primer", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm finished primer", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
       HTML("WARNING! Your decisions will have consequences!"),
@@ -265,7 +292,7 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished, {
     removeModal()
-    showNotification( paste("Finished primer submitted:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
+    showNotification( paste("Finished primer submitted:\n", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                             type = "error", duration = 10)
     #Add finished comment to primer
   })
@@ -277,7 +304,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$report_reordered, {
-    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("WARNING! Your decisions will have consequences!"),
@@ -290,7 +317,7 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished2, {
     removeModal()
-    showNotification( paste("Reorder primer submitted:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
+    showNotification( paste("Reorder primer submitted:\n", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                       type = "warning", duration = 10)
     #Create new entry for reordered primer
   })
@@ -302,7 +329,7 @@ shinyServer(function(input, output, global, session) {
   
   ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$modify_primer_comment, {
-    showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("New comment: "),
@@ -345,7 +372,7 @@ shinyServer(function(input, output, global, session) {
 
   observeEvent(pollUpdate(), {
     create_blast_db("primers.fasta", "nucl")
-  })
+  }, ignoreInit = TRUE)
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   

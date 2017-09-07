@@ -112,7 +112,7 @@ shinyUI(function(request){
                   box(width = 12,
                       title = "Actions",
                       status = "warning",
-                      valueBox("Correctly filled lines", icon = icon("check-square-o"), color = "green", value = 0, width = 5)
+                      DT::dataTableOutput("new_primers")
                   ))),
         
         tabItem(tabName = "empty_primer",
