@@ -9,8 +9,9 @@ enableBookmarking(store = "server")
 
 
 ## Example primer file until SQL is not working
-all_primers <- read_csv("primers.csv")
+#all_primers <- read_csv("primers.csv")
 auth_users <- read_csv("users.csv")
+blast_path <- ""
 
 source(file = "helper.R")
 
@@ -20,3 +21,5 @@ shinyjs.collapse = function(boxid) {
 $('#' + boxid).closest('.box').find('[data-widget=collapse]').click();
 }
 "
+
+con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")

@@ -11,6 +11,9 @@ library(shinyjs)
 library(DT)
 library(rhandsontable)
 library(tidyverse)
+library(DBI)
+library(RSQLite)
+library(dbplyr)
 
 shinyServer(function(input, output, global, session) {
   
@@ -21,8 +24,8 @@ shinyServer(function(input, output, global, session) {
   
   ## ValueBox~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   output$empty_info <- renderValueBox({
-    valueBox(subtitle = paste( "ID:", input$empty_primers),
-             value = all_primers() %>% filter(ID == input$empty_primers) %>% .[,2],
+    valueBox(subtitle = paste( "id:", input$empty_primers),
+             value = all_primers() %>% filter(id == input$empty_primers) %>% select(primer_name),
               icon = icon(name = "flask", lib = "font-awesome"), width = 12
               )
   })
@@ -34,24 +37,45 @@ shinyServer(function(input, output, global, session) {
                             filePath = "primers.sqlite",
                             readFunc = function(x) {
                               con <- dbConnect(SQLite(), x)
-                              con %>% tbl("primers") %>% as_data_frame() %>% mutate(date = lubridate::as_date(date %>% as.numeric())) -> table_out
-                              dbDisconnect(con)
+                              con %>% tbl("primers") %>% as_data_frame() %>% mutate(date = lubridate::as_date(date %>% as.numeric()),
+                                                                                    empty = empty %>% as.logical()) -> table_out
+                              
                               return(table_out)
                             })
   
-  output$browse_primers <- DT::renderDataTable(datatable(all_primers()), 
-                                               server = TRUE)
+  output$browse_primers <- DT::renderDataTable(all_primers() %>% datatable(class = 'cell-border stripe',
+                                                                         rownames = FALSE),
+                                                               server = TRUE)
+  
+  
+  ## Selectize input for empty primers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  output$empty_primer_selection <- renderUI({
+    selectizeInput("empty_primers", label = "Primer id", choices = all_primers() %>% select(id))
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   
   ##Disable file uploading without proper username and a file uploaded~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  disable("file_upload")
+  disable("upload_check")
   observe({
      if (!is.null(input$file_primer_update) && nchar(input$submit_user) > 3 ) { 
        # Change the following line for more examples
-       shinyjs::enable("file_upload")
+       shinyjs::enable("upload_check")
      } else {
-       shinyjs::disable("file_upload")
+       shinyjs::disable("upload_check")
      }
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  ##Disable manual input validation without proper username~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  disable("manual_check")
+  observe({
+    if (nchar(input$submit_user) > 3 ) { 
+      # Change the following line for more examples
+      shinyjs::enable("manual_check")
+    } else {
+      shinyjs::disable("manual_check")
+    }
   })
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -71,7 +95,7 @@ shinyServer(function(input, output, global, session) {
     output$manual_input <- renderRHandsontable(
       rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
     )
-    data$checm <- NULL
+    data$check <- NULL
     shinyjs::hide("box1")
     statusCode$code <- 0
   })   
@@ -107,7 +131,6 @@ shinyServer(function(input, output, global, session) {
    observeEvent(input$manual_check, {
      data$check <- hot_to_r(input$manual_input) %>% isolate() %>% as_tibble() %>% filter(name != "", seq != "", conc > 0)
      
-     
      if(nrow(data$check) == 0) {
        showModal(modalDialog(title = "No or invalid entries!",
                              "Please make sure you entered at least one valid line with name, sequence and concentration.",
@@ -118,7 +141,10 @@ shinyServer(function(input, output, global, session) {
      } else {}
    output$check_table <- 
      DT::renderDataTable(
-     data$check %>% DT::datatable(), server = TRUE)
+     data$check %>% DT::datatable(options = list(pageLength = -1,
+                                                 lengthMenu = FALSE),
+                                  class = 'cell-border stripe',
+                                  rownames = FALSE), server = TRUE)
    shinyjs::show("box1")
    statusCode$code <- 1
    }
@@ -137,23 +163,27 @@ shinyServer(function(input, output, global, session) {
        return()
      } else {
        file1 <- input$file_primer_update
-       data$check <- read_csv(file1$datapath, col_names = c("a", "name", "seq", "conc", "comm"), skip = 1) %>% filter(name != "", seq != "", conc > 0, !is.null(conc))
+       data$check <- read_fasmac(file1$datapath)
        update_table <- reactive({data$check})
        shinyjs::show("box1")
     }
      
      if(nrow(data$check) == 0) {
        showModal(modalDialog(title = "No or invalid entries!",
-                             "Please make sure you entered at least one valid line with name, sequence and concentration.",
+                             "Please make sure you entered a proper file with at least one valid line with name, sequence and concentration.",
                              easyClose = TRUE,
                              footer = NULL, 
                              size = "l"))
        return()
      } else {
-       statusCode$code <- 1
        output$check_table <- 
           DT::renderDataTable(
-            data$check,  server = TRUE)
+            data$check %>% DT::datatable(options = list(pageLength = -1,
+                                                        lengthMenu = FALSE),
+                                         class = 'cell-border stripe',
+                                         rownames = FALSE),  server = TRUE)
+       shinyjs::show("box1")
+       statusCode$code <- 1
      
      }
    }
@@ -199,7 +229,7 @@ shinyServer(function(input, output, global, session) {
   ##Update database with submitted primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$submit_new, {
     
-    showModal(modalDialog(title = paste("Confirm primer uploading", " ID later ", "(id:", input$empty_primers, ")"), 
+    showModal(modalDialog(title = paste("Confirm primer uploading. Your primers' new ID's will be visible after submission."), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
                             tagList( 
                               HTML("WARNING! Your decisions will have consequences!"),
@@ -236,17 +266,23 @@ shinyServer(function(input, output, global, session) {
                                           "sequence" = "seq",
                                           "concentration" = "conc"))
     
-    con %>% dbDisconnect()
     
     
     for (line in 1:nrow(data$check)) {
-      write_file(x = paste("\n>", data$check$name[line], "\n",
-                           data$check$seq[line], sep = ""),
+      write_file(x = paste("\n>", data$new_primers$id[line], "\n",
+                           data$new_primers$sequence[line], sep = ""),
                  path = "primers.fasta",
                  append = TRUE)
     }
     
-    output$new_primers <- renderDataTable(data$new_primers %>% DT::datatable())
+    output$new_primers <- renderDataTable(data$new_primers %>% mutate(date = lubridate::as_date(date %>% 
+                                                                                                  as.numeric()),
+                                                                      empty = empty %>% 
+                                                                        as.logical()) %>% 
+                                            DT::datatable(options = list(pageLength = -1,
+                                                                         lengthMenu = FALSE),
+                                                          class = 'cell-border stripe',
+                                                          rownames = FALSE))
     
     # data$check %>% 
     #   as_data_frame() %>%
@@ -255,7 +291,6 @@ shinyServer(function(input, output, global, session) {
     #   write_file(path = "primers.fasta",
     #              append = TRUE)
    
-    
     shinyjs::reset("file_primer_update")
     shinyjs::hide("box1")
     data$check <- NULL
@@ -376,17 +411,130 @@ shinyServer(function(input, output, global, session) {
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
   
-  ##Plan~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ## Blast~~~~~~~~~~~
   
-  # check_data contains new primers
-  # when submit button (input$submit_new) was triggered :
-  # Assign new IDs for primers
-  # Append data to fasta file
-  # Append data to sqlite
-  # Give feedback table/text on new IDs and success of submission
+  observeEvent(input$primer_search, {
+    
+    #output$blast_test <- renderText(input$blast_query %>% shiny::isolate())
+    
+    if (!fasta_validator(input$blast_query %>% isolate() %>% as.character())) {
+      showModal(modalDialog(title = "No or invalid entries!",
+                            "Please make sure you entered a valid fasta sequnce",
+                            easyClose = TRUE,
+                            footer = NULL, 
+                            size = "l"))
+      return()
+    }
+    
+    output$blast_test <- renderDataTable({
+      withProgress(message = "BLAST", 
+                 detail = "This may take a while",
+                 {
+                   for (i in 1:10) {
+                     incProgress(1/100)
+                     Sys.sleep(0.1)
+                   }
+                 })
+      data$blast_option <- blast_options(query = isolate(input$blast_query),
+                                         blast_db = "primers.fasta",
+                                         ungapped = isolate(input$exact_match),
+                                         evalue = isolate(input$blast_evalue))#,
+                #evalue = input$blast_evalue)
+                
+      blast_query_file <- paste("blast_input_", Sys.time() %>% as.numeric(),".fasta", sep = "")
+                
+      write_file(x = paste(">blast_query\n", isolate(input$blast_query),sep = ""), 
+                 path = paste("blast_query/", blast_query_file, sep = ""), append = FALSE)
+                
+     data$blast <- blast_search(blast_op = data$blast_options,
+                                blast_type = "blastn",
+                                query = paste("./blast_query/", blast_query_file, sep = ""),
+                                blast_db = "primers.fasta")
+     
+     data$query_length <- stringr::str_length(isolate(input$blast_query))
+                
+     file.remove(paste("blast_query/", blast_query_file, sep = ""))
+     updateTextAreaInput(session, inputId = "blast_query", value = "")
+            
+     con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
+     data$blast_output <- con %>% 
+       tbl("primers") %>%
+       collect() %>%
+       mutate(sseqid = id) %>%
+       inner_join(data$blast) %>%
+       mutate(
+         primer_len = stringr::str_length(sequence),
+         query_direction = sign(qend - qstart),
+         primer_direction = sign(send - sstart),
+         query_seq = isolate(input$blast_query) %>% stringr::str_sub(qstart, qend)
+       ) %>%
+       select(id, primer_name, empty, pident, primer_len, length:send, 
+              query_direction, primer_direction, query_seq, sequence, qstart, qend) %>% 
+       filter(sstart == primer_len | send == primer_len) %>%
+       select(id, primer_name , query_seq, sequence, pident, primer_direction, qstart, qend)
+     
+     DT::datatable(data$blast_output)
+    })
+    
+    ## Blast plot
+    
+    output$blast_graph <- renderHighchart({
+      con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
+      
+      
+        highchart() %>%
+          hc_yAxis(min = 0,
+                   max = stringr::str_length(isolate(input$blast_query)),
+                   title= "Query sequence",
+                   allowDeciamls = FALSE,
+                   crossHair = TRUE,
+                   minRange = 10,
+                   minorGridLineDashStyle = "longdash",
+                   minorTickInterval = 1) %>%
+          hc_xAxis(min = -1,
+                   max = 1) %>%
+          hc_add_series(type = "columnrange",
+                        data = tibble(x = 0, low = 1, high = stringr::str_length(isolate(input$blast_query))),
+                        hcaes(x = x,
+                              low = low,
+                              high = high),
+                        pointPadding = 0,
+                        pointWidth = 10,
+                        grouping = FALSE,
+                        pointPlacement = 0,
+                        enableMouseTracking = FALSE) %>%
+          hc_add_series(type = "columnrange",
+                        data = data$blast_output %>% isolate(),
+                        hcaes(x = primer_direction*0.1,
+                              low = qstart,
+                              high = qstart + (primer_direction * stringr::str_length(sequence))),
+                        pointWidth = 5,
+                        grouping = FALSE,
+                        pointPlacement = 0,
+                        color = "red") %>%
+          hc_add_series(type = "columnrange",
+                           data = data$blast_output %>% isolate(),
+                        hcaes(x = primer_direction*0.1,
+                              low = qstart,
+                              high = qend),
+                        pointWidth = 5,
+                        grouping = FALSE,
+                        pointPlacement = 0) %>%
+          hc_chart(inverted = "x", zoomType = "y") %>%
+          highcharter::hc_tooltip(pointFormat = "{point.sequence} <br> Primer: <b>{point.primer_name}</b> <br> ID: {point.id}",
+                                  hideDelay = 20) 
+      
+      
+      
+    })
+     
+    session$onSessionEnded(function() {
+      con %>% dbDisconnect()
+    })
+    
+  })
   
-  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
+  ## ~~~~~~~~~~~~~~~~
   
   
   

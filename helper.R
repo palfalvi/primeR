@@ -78,7 +78,7 @@ fasta_validator <- function(fasta,type='nucl') {
     fastaRegEx = '[^a-zA-Z]'
   }
   
-  if (substr(fasta,1,1) == ">" ) {
+  if (substr(fasta,1,1) != ">" ) {
     seq <- gsub("\n", "",gsub(" ","",substr(fasta,as.numeric(gregexpr('\\n',fasta)[[1]][1]),nchar(fasta))))
     return(!stringr::str_detect(fasta, fastaRegEx))
   } else {
@@ -102,37 +102,30 @@ fasta_validator <- function(fasta,type='nucl') {
 #'
 #' @examples blast_op <- blast_options() \n blast_op$query <- "path/to/query" \n blast_op$blast_db <- "path/to/blastdb" \n blast_op$evalue <- 10e-3
 #' @seealso blast_search
-blast_options <- function(query = "", blast_db = "", ungapped = TRUE) {
+blast_options <- function(query = "", blast_db = "", ungapped = TRUE, evalue = 1000) {
   if (ungapped == FALSE) {
   list(
     "query" = query,
     "db" = blast_db,
     "outfmt" = 6,
-    "evalue" = 10,
-    "word_size" = 28,
+    "evalue" = evalue,
+    "word_size" = 7,
     "num_threads" = 1,
     "best_hit_overhang" = 0.1,
     "best_hit_score_edge" = 0.1,
-    "max_target_seqs" = 100,
-    "gapopen" = 5,
-    "gapextend" = 2,
-    "penalty" = -5,
-    "reward" = 1
+    "max_target_seqs" = 100
   ) 
     } else {
     list(
       "query" = query,
       "db" = blast_db,
       "outfmt" = 6,
-      "evalue" = 10,
-      "word_size" = 28,
+      "evalue" = evalue,
+      "word_size" = 7,
       "num_threads" = 1,
       "best_hit_overhang" = 0.1,
       "best_hit_score_edge" = 0.1,
-      "max_target_seqs" = 100,
-      "ungapped" = "",
-      "penalty" = -5,
-      "reward" = 1
+      "max_target_seqs" = 100
     )
   }
 }
@@ -154,13 +147,6 @@ blast_options <- function(query = "", blast_db = "", ungapped = TRUE) {
 #' @examples
 blast_search <- function(blast_op = NULL, blast_type = c('blastn', 'blastx', 'tblastx', 'tblastn', 'blastp'), blast_bin = "", query = NULL, blast_db = NULL) {
   # If query is not a valid fasta, break and return an error message.
-  if (!fasta_validator(query)) {
-    return("Not a valid fasta format")
-  }
-  
-  if (xor(is.na(blast_op), (is.na(query) && is.na(blast_db)))) {
-    return(cat("Please provide blast_op argumnet (use 'blast_option()') OR provide query and blast_db arguments for default options"))
-  }
   
   if (is.null(blast_op)) {
     blast_op <- blast_options(query = query, blast_db = blast_db, ungapped = FALSE)
@@ -170,7 +156,7 @@ blast_search <- function(blast_op = NULL, blast_type = c('blastn', 'blastx', 'tb
   # Convert blast_op to a character vector
   blast_op_vector <- trimws(paste("-", names(blast_op), " ", blast_op,  sep = ""))
   
-  blast_out <- system2(command = print(blast_bin, blast_type, quote = FALSE, sep = ""), 
+  blast_out <- system2(command = print("blastn", quote = FALSE), 
                        args = blast_op_vector,
                        stdout = TRUE,
                        wait = TRUE)
@@ -178,10 +164,11 @@ blast_search <- function(blast_op = NULL, blast_type = c('blastn', 'blastx', 'tb
   
   blast_out_read <- try(read.table(textConnection(blast_out),sep='\t'),silent=TRUE)
   
-  if (is.na(dim(blast_out_read))) {
+  if (is.null(blast_out_read)) {
     return(cat("Sorry, we could not find any hit.\nTry to modify the BLAST options or use another query."))
   }
   
+  blast_out_read <- as_tibble(blast_out_read)
   colnames(blast_out_read) <- c("qseqid",
                                 "sseqid",
                                 "pident",
@@ -195,7 +182,7 @@ blast_search <- function(blast_op = NULL, blast_type = c('blastn', 'blastx', 'tb
                                 "evalue",
                                 "bitscore")
   
-  return()
+  return(blast_out_read %>% as_data_frame())
   
 }
 
@@ -219,6 +206,58 @@ create_blast_db <- function(input, dbtype = "nucl") {
     stdout = paste("blast_db_update", ".out", sep=""),
     wait = TRUE
     )
+  
+}
+
+
+#' Read Fasmac report csv file and reformat for the primer database
+#'
+#' @param file input file. download csv report from fasmac's website.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+read_fasmac <- function(file) {
+  read_csv(file, 
+           skip = 1,
+           col_types = cols(col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_character(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_character(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_character(),
+                            col_character(),
+                            col_character(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_skip(),
+                            col_number(),
+                            col_skip()),
+           col_names = c("name",
+                         "seq",
+                         "modified_5",
+                         "modified_3",
+                         "all_modified",
+                         "conc")) %>%
+    mutate(comm = paste(if_else(is.na(modified_5), "", paste("5' modification:", modified_5, "\n")), 
+                            if_else(is.na(modified_3), "", paste("3' modification:", modified_3, "\n")), 
+                            if_else(is.na(all_modified), "", paste("modification:", all_modified, "\n"))),
+           seq = seq %>% stringr::str_to_lower() %>% stringr::str_replace_all(" ", "")) %>%
+    select(name,
+           seq,
+           conc,
+           comm)
   
 }
 

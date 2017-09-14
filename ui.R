@@ -38,7 +38,7 @@ shinyUI(function(request){
                     status = "primary", 
                     solidHeader = TRUE,
                     width = 8,
-                    textAreaInput("blast_query", "Fasta query input:", cols = 10, rows = 8, resize = "vertical", placeholder = paste(">FASTA\n;tcagatacagatagaca")),
+                    textAreaInput("blast_query", "Sequence input (without header!):", cols = 10, rows = 8, resize = "vertical", placeholder = paste("cggctagctagaaac\ntcagatacagataga")),
                     actionButton("primer_search", "Search")
                   ),
                   box(
@@ -49,19 +49,21 @@ shinyUI(function(request){
                     collapsed = TRUE,
                     width = 4,
                     checkboxInput("exact_match", "Without gaps", value = 1),
-                    numericInput("blast_evalue", "E-value treshold", value = 10, min = 0, max = 100)
+                    numericInput("blast_evalue", "E-value treshold", value = 1000, min = 0, max = 10000)
                   )),
                 fluidRow(
                   box(width = 12,
                       collapsible = TRUE,
                       status = "info",
                       solidHeader = TRUE,
-                      title = "Graphical results"
+                      title = "Graphical results",
+                      highchartOutput("blast_graph")
                       #plotlyOutput() or highcharterOutput()
                   ),
                   box(width = 12,
                     title = "Results", status = "info", solidHeader = TRUE, 
-                    HTML('Here comes the result later')
+                    HTML('Here comes the result later'),
+                    dataTableOutput("blast_test")
                   )
                 )),
         tabItem(tabName = "submit_primer",
@@ -86,8 +88,6 @@ shinyUI(function(request){
                                fileInput("file_primer_update", label = "Upload .csv file with primer infos", 
                                          accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv")
                                ),
-                               checkboxInput("fasmac_csv", label = "Fasmac .csv file", value = TRUE),
-                               
                                actionButton("upload_check", "Upload file"),
                                actionButton("file_reset", "Reset file")
                              ),
@@ -119,7 +119,8 @@ shinyUI(function(request){
                 fluidRow(
                   box(width = 12,status = "info",
                       title = "Modify primer records", solidHeader = TRUE,
-                      selectizeInput("empty_primers", label = "Primer ID", choices = all_primers$`No.`)
+                      uiOutput("empty_primer_selection")
+                      #selectizeInput("empty_primers", label = "Primer id", choices = all_primers() %>% select(id))
                   ),
                   valueBoxOutput("empty_info",width = 12),
                   box(width = 4,status = "info", solidHeader = TRUE,
