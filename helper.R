@@ -107,7 +107,7 @@ blast_options <- function(query = "", blast_db = "", ungapped = TRUE, evalue = 1
   list(
     "query" = query,
     "db" = blast_db,
-    "outfmt" = 6,
+    "outfmt" = "'6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq'",
     "evalue" = evalue,
     "word_size" = 7,
     "num_threads" = 1,
@@ -119,7 +119,7 @@ blast_options <- function(query = "", blast_db = "", ungapped = TRUE, evalue = 1
     list(
       "query" = query,
       "db" = blast_db,
-      "outfmt" = 6,
+      "outfmt" = "'6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq'",
       "evalue" = evalue,
       "word_size" = 7,
       "num_threads" = 1,
@@ -180,7 +180,9 @@ blast_search <- function(blast_op = NULL, blast_type = c('blastn', 'blastx', 'tb
                                 "sstart",
                                 "send",
                                 "evalue",
-                                "bitscore")
+                                "bitscore",
+                                "qseq",
+                                "sseq")
   
   return(blast_out_read %>% as_data_frame())
   

@@ -14,6 +14,7 @@ library(tidyverse)
 library(DBI)
 library(RSQLite)
 library(dbplyr)
+library(highcharter)
 
 shinyServer(function(input, output, global, session) {
   
@@ -464,16 +465,18 @@ shinyServer(function(input, output, global, session) {
        inner_join(data$blast) %>%
        mutate(
          primer_len = stringr::str_length(sequence),
-         query_direction = sign(qend - qstart),
          primer_direction = sign(send - sstart),
-         query_seq = isolate(input$blast_query) %>% stringr::str_sub(qstart, qend)
+         binding_seq = sequence %>% stringr::str_sub(ifelse(primer_direction == 1, sstart, send), ifelse(primer_direction == 1, send, sstart)),
+         flagging_seq = ifelse(str_length(sequence) == str_length(binding_seq), "", sequence %>% stringr::str_sub(end = primer_len - str_length(binding_seq) )),
+         alignment = map2(.x = qseq, .y = sseq, .f = function(x, y) {(str_split(x, "")[[1]] == str_split(y,"")[[1]]) %>% as.numeric()}),
+         dots = pmap(list(qstart, qend, binding_seq), .f = function(x, y, z) {seq(x, y, length.out = str_length(z))})
        ) %>%
-       select(id, primer_name, empty, pident, primer_len, length:send, 
-              query_direction, primer_direction, query_seq, sequence, qstart, qend) %>% 
+       select(id, primer_name, empty, pident, primer_len, length:send, primer_direction, sequence, binding_seq, flagging_seq, alignment, dots) %>% 
        filter(sstart == primer_len | send == primer_len) %>%
-       select(id, primer_name , query_seq, sequence, pident, primer_direction, qstart, qend)
+       select(id, primer_name, binding_seq, flagging_seq, sequence, pident, primer_direction, qstart, qend, gapopen, mismatch, alignment, dots)
      
-     DT::datatable(data$blast_output)
+     DT::datatable(data$blast_output %>%
+                     select( -alignment))
     })
     
     ## Blast plot
@@ -481,18 +484,35 @@ shinyServer(function(input, output, global, session) {
     output$blast_graph <- renderHighchart({
       con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
       
-      
         highchart() %>%
-          hc_yAxis(min = 0,
+          hc_yAxis_multiples(
+            list(min = 0,
                    max = stringr::str_length(isolate(input$blast_query)),
                    title= "Query sequence",
                    allowDeciamls = FALSE,
                    crossHair = TRUE,
-                   minRange = 10,
+                   minRange = 40,
                    minorGridLineDashStyle = "longdash",
-                   minorTickInterval = 1) %>%
+                   minorTickInterval = 1
+                   ),
+            list(top = "50%",
+                 lineWidth = 5))%>%
           hc_xAxis(min = -1,
-                   max = 1) %>%
+                   max = 1,
+                   reversed = FALSE) %>%
+          hc_add_series(#primer_matching
+                     type = "columnrange",
+                     enableMouseTracking = FALSE,
+                     data = data$blast_output %>%
+                       select(id, dots, alignment, primer_direction) %>% 
+                       unnest(),
+                     hcaes(low = dots - 0.5,
+                           high = dots + 0.5,
+                           x = primer_direction*0.1,
+                           color = ifelse(alignment == 1, "green", "red")),
+                     pointWidth = 4,
+                     pointPlacement = 0
+                   ) %>%
           hc_add_series(type = "columnrange",
                         data = tibble(x = 0, low = 1, high = stringr::str_length(isolate(input$blast_query))),
                         hcaes(x = x,
@@ -502,29 +522,48 @@ shinyServer(function(input, output, global, session) {
                         pointWidth = 10,
                         grouping = FALSE,
                         pointPlacement = 0,
-                        enableMouseTracking = FALSE) %>%
+                        enableMouseTracking = FALSE,
+                        color = "dodgerblue") %>%
           hc_add_series(type = "columnrange",
                         data = data$blast_output %>% isolate(),
-                        hcaes(x = primer_direction*0.1,
-                              low = qstart,
-                              high = qstart + (primer_direction * stringr::str_length(sequence))),
+                        hcaes(x = primer_direction*0.2,
+                              low = ifelse(primer_direction == 1, qstart - str_length(flagging_seq), qend),
+                              high = ifelse(primer_direction == 1, qstart, qend + str_length(flagging_seq))),
                         pointWidth = 5,
                         grouping = FALSE,
                         pointPlacement = 0,
                         color = "red") %>%
           hc_add_series(type = "columnrange",
                            data = data$blast_output %>% isolate(),
-                        hcaes(x = primer_direction*0.1,
+                        hcaes(x = primer_direction*0.2,
                               low = qstart,
                               high = qend),
                         pointWidth = 5,
                         grouping = FALSE,
-                        pointPlacement = 0) %>%
-          hc_chart(inverted = "x", zoomType = "y") %>%
-          highcharter::hc_tooltip(pointFormat = "{point.sequence} <br> Primer: <b>{point.primer_name}</b> <br> ID: {point.id}",
-                                  hideDelay = 20) 
-      
-      
+                        pointPlacement = 0,
+                        fillOpacity = 0.1) %>%
+          # hc_add_series(#sequence letters
+          #               type = "scatter",
+          #               enableMouseTracking = FALSE,
+          #               data = tibble(x = 0,
+          #                             y = 1:stringr::str_length(isolate(input$blast_query)),
+          #                             name = (stringr::str_split(isolate(input$blast_query), "")[[1]])),
+          #               hcaes(x = x,
+          #                     y = y),
+          #               dataLabels = list(
+          #                 enable = TRUE,
+          #                 format = '<point.name>'
+          #                 )
+          #               ) %>%
+          hc_chart(inverted = TRUE, zoomType = "y") %>%
+          hc_tooltip(pointFormat = "<i><font color='red'>{point.flagging_seq}</i></font><b>{point.binding_seq}</b> <br> Primer: <b>{point.primer_name}</b> <br> ID: {point.id}",
+                                  hideDelay = 20,
+                     style = list(fontFamily = "Monaco")) %>%
+          hc_legend(enabled = FALSE) %>%
+          hc_plotOptions(dataLbels = list(
+            enable = TRUE,
+            format = '<point.name>' 
+          ))
       
     })
      

@@ -21,7 +21,7 @@ Proper columns in future:
 - empty #TRUE/FALSE
 
 ```{r open_csv}
-all_primers <- read_csv("primers.csv", col_names = c("id", 
+all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id", 
                                                      "primer_name", 
                                                      "sequence", 
                                                      "concentration"), 
@@ -51,6 +51,10 @@ con <- dbConnect(SQLite(), "./../../primers.sqlite")
 ```
 
 ```{r overwrite}
+#Delete table
+#dbRemoveTable(con, "primers")
+
+
 dbGetQuery(con, "CREATE TABLE primers
 (
   id INTEGER PRIMARY KEY, -- Autoincrement
