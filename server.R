@@ -446,7 +446,7 @@ shinyServer(function(input, output, global, session) {
                 
       write_file(x = paste(">blast_query\n", isolate(input$blast_query),sep = ""), 
                  path = paste("blast_query/", blast_query_file, sep = ""), append = FALSE)
-                
+     data$blast <- NULL           
      data$blast <- blast_search(blast_op = data$blast_options,
                                 blast_type = "blastn",
                                 query = paste("./blast_query/", blast_query_file, sep = ""),
@@ -458,6 +458,7 @@ shinyServer(function(input, output, global, session) {
      updateTextAreaInput(session, inputId = "blast_query", value = "")
             
      con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
+     data$blast_output <- NULL
      data$blast_output <- con %>% 
        tbl("primers") %>%
        collect() %>%
@@ -469,14 +470,17 @@ shinyServer(function(input, output, global, session) {
          binding_seq = sequence %>% stringr::str_sub(ifelse(primer_direction == 1, sstart, send), ifelse(primer_direction == 1, send, sstart)),
          flagging_seq = ifelse(str_length(sequence) == str_length(binding_seq), "", sequence %>% stringr::str_sub(end = primer_len - str_length(binding_seq) )),
          alignment = map2(.x = qseq, .y = sseq, .f = function(x, y) {(str_split(x, "")[[1]] == str_split(y,"")[[1]]) %>% as.numeric()}),
-         dots = pmap(list(qstart, qend, binding_seq), .f = function(x, y, z) {seq(x, y, length.out = str_length(z))})
+         dots = pmap(list(qstart, qend, alignment), .f = function(x, y, z) {seq(x, y, length.out = length(z))})
        ) %>%
        select(id, primer_name, empty, pident, primer_len, length:send, primer_direction, sequence, binding_seq, flagging_seq, alignment, dots) %>% 
        filter(sstart == primer_len | send == primer_len) %>%
        select(id, primer_name, binding_seq, flagging_seq, sequence, pident, primer_direction, qstart, qend, gapopen, mismatch, alignment, dots)
      
      DT::datatable(data$blast_output %>%
-                     select( -alignment))
+                     select( -flagging_seq,
+                             -binding_seq,
+                             -primer_direction,
+                             -sequence))
     })
     
     ## Blast plot
@@ -560,7 +564,7 @@ shinyServer(function(input, output, global, session) {
                                   hideDelay = 20,
                      style = list(fontFamily = "Monaco")) %>%
           hc_legend(enabled = FALSE) %>%
-          hc_plotOptions(dataLbels = list(
+          hc_plotOptions(dataLabels = list(
             enable = TRUE,
             format = '<point.name>' 
           ))
