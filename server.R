@@ -431,8 +431,8 @@ shinyServer(function(input, output, global, session) {
       withProgress(message = "BLAST", 
                  detail = "This may take a while",
                  {
-                   for (i in 1:10) {
-                     incProgress(1/100)
+                   for (i in 1:50) {
+                     incProgress(1/50)
                      Sys.sleep(0.1)
                    }
                  })
@@ -470,40 +470,53 @@ shinyServer(function(input, output, global, session) {
          binding_seq = sequence %>% stringr::str_sub(ifelse(primer_direction == 1, sstart, send), ifelse(primer_direction == 1, send, sstart)),
          flagging_seq = ifelse(str_length(sequence) == str_length(binding_seq), "", sequence %>% stringr::str_sub(end = primer_len - str_length(binding_seq) )),
          alignment = map2(.x = qseq, .y = sseq, .f = function(x, y) {(str_split(x, "")[[1]] == str_split(y,"")[[1]]) %>% as.numeric()}),
-         dots = pmap(list(qstart, qend, alignment), .f = function(x, y, z) {seq(x, y, length.out = length(z))})
+         dots = pmap(list(qstart, qend, alignment, primer_direction), .f = function(x, y, z, d) { if(d == 1){seq(x, y, length.out = length(z))} else {seq(y, x, length.out = length(z))}}),
+         placeholder = flagging_seq %>% str_replace_all("[a-zA-Z]", "_")
        ) %>%
-       select(id, primer_name, empty, pident, primer_len, length:send, primer_direction, sequence, binding_seq, flagging_seq, alignment, dots) %>% 
+       select(id, primer_name, empty, pident, primer_len, length:send, primer_direction, sequence, binding_seq, flagging_seq, alignment, dots, sseq, qseq, placeholder) %>% 
        filter(sstart == primer_len | send == primer_len) %>%
-       select(id, primer_name, binding_seq, flagging_seq, sequence, pident, primer_direction, qstart, qend, gapopen, mismatch, alignment, dots)
+       select(id, primer_name, binding_seq, flagging_seq, sequence, pident, primer_direction, qstart, qend, gapopen, mismatch, alignment, dots, sseq, qseq, placeholder)
      
      DT::datatable(data$blast_output %>%
-                     select( -flagging_seq,
-                             -binding_seq,
-                             -primer_direction,
-                             -sequence))
+                     select(-flagging_seq,
+                            -binding_seq,
+                            -qseq,
+                            -sseq,
+                            -alignment,
+                            -dots,
+                            -placeholder))
     })
     
     ## Blast plot
     
     output$blast_graph <- renderHighchart({
+      
+      withProgress(message = "Summarising results", 
+                   detail = "This may take a while",
+                   {
+                     for (i in 1:30) {
+                       incProgress(1/30)
+                       Sys.sleep(0.1)
+                     }
+                   })
+      
       con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
       
         highchart() %>%
-          hc_yAxis_multiples(
-            list(min = 0,
+          hc_yAxis(title = list(text = "Input sequence (bp)"),
+                   min = 0,
                    max = stringr::str_length(isolate(input$blast_query)),
                    title= "Query sequence",
                    allowDeciamls = FALSE,
                    crossHair = TRUE,
                    minRange = 40,
                    minorGridLineDashStyle = "longdash",
-                   minorTickInterval = 1
-                   ),
-            list(top = "50%",
-                 lineWidth = 5))%>%
-          hc_xAxis(min = -1,
+                   minorTickInterval = 1)%>%
+          hc_xAxis(title = list(text = ""),
+                   min = -1,
                    max = 1,
-                   reversed = FALSE) %>%
+                   reversed = FALSE
+                   ) %>%
           hc_add_series(#primer_matching
                      type = "columnrange",
                      enableMouseTracking = FALSE,
@@ -560,9 +573,11 @@ shinyServer(function(input, output, global, session) {
           #                 )
           #               ) %>%
           hc_chart(inverted = TRUE, zoomType = "y") %>%
-          hc_tooltip(pointFormat = "<i><font color='red'>{point.flagging_seq}</i></font><b>{point.binding_seq}</b> <br> Primer: <b>{point.primer_name}</b> <br> ID: {point.id}",
+          hc_tooltip(pointFormat = "5'-<i>{point.flagging_seq}</i><b>{point.sseq}</b>-3' <br>5'-{point.placeholder}<b>{point.qseq}</b>-3'<br>Primer: <b>{point.primer_name}</b><br>ID: {point.id}",
                                   hideDelay = 20,
-                     style = list(fontFamily = "Monaco")) %>%
+                     headerFormat = "Primer info<br>",
+                     style = list(fontFamily = "Monaco"),
+                     hideDelay = 500) %>%
           hc_legend(enabled = FALSE) %>%
           hc_plotOptions(dataLabels = list(
             enable = TRUE,
