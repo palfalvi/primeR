@@ -478,13 +478,19 @@ shinyServer(function(input, output, global, session) {
        select(id, primer_name, binding_seq, flagging_seq, sequence, pident, primer_direction, qstart, qend, gapopen, mismatch, alignment, dots, sseq, qseq, placeholder)
      
      DT::datatable(data$blast_output %>%
+                     mutate(Direction = ifelse(primer_direction == 1, "Forward", "Reverse"),
+                            "Binding length" = qend - qstart + 1) %>%
                      select(-flagging_seq,
                             -binding_seq,
                             -qseq,
                             -sseq,
                             -alignment,
                             -dots,
-                            -placeholder))
+                            -placeholder,
+                            -qstart,
+                            -qend,
+                            -primer_direction) 
+                     )
     })
     
     ## Blast plot
@@ -492,7 +498,7 @@ shinyServer(function(input, output, global, session) {
     output$blast_graph <- renderHighchart({
       
       withProgress(message = "Summarising results", 
-                   detail = "This may take a while",
+                   detail = "",
                    {
                      for (i in 1:30) {
                        incProgress(1/30)
@@ -585,6 +591,13 @@ shinyServer(function(input, output, global, session) {
           ))
       
     })
+    
+    output$download_blast <- downloadHandler(
+      filename = function() {paste('primer_result-', Sys.Date(), '.csv', sep = "")},
+      content = function(con){write_csv(data$blast_output %>% select(id,
+                                                                     primer_name,
+                                                                     sequence),
+                                        con)})
      
     session$onSessionEnded(function() {
       con %>% dbDisconnect()

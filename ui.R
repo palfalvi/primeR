@@ -58,11 +58,11 @@ shinyUI(function(request){
                       solidHeader = TRUE,
                       title = "Graphical results",
                       highchartOutput("blast_graph")
-                      #plotlyOutput() or highcharterOutput()
                   ),
                   box(width = 12,
                     title = "Results", status = "info", solidHeader = TRUE, 
-                    HTML('Here comes the result later'),
+                    downloadButton("download_blast", "Download blast results"),
+                    br(),
                     dataTableOutput("blast_test")
                   )
                 )),
