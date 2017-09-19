@@ -164,6 +164,7 @@ shinyServer(function(input, output, global, session) {
        return()
      } else {
        file1 <- input$file_primer_update
+       data$check <- NULL
        data$check <- read_fasmac(file1$datapath)
        update_table <- reactive({data$check})
        shinyjs::show("box1")

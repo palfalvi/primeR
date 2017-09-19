@@ -259,7 +259,8 @@ read_fasmac <- function(file) {
     select(name,
            seq,
            conc,
-           comm)
+           comm) %>%
+    filter(!is.na(name))
   
 }
 
