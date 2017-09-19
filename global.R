@@ -22,4 +22,4 @@ $('#' + boxid).closest('.box').find('[data-widget=collapse]').click();
 }
 "
 
-con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
+con <- DBI::dbConnect(RSQLite::SQLite(), "primers.sqlite")

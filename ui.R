@@ -10,6 +10,7 @@ library(shinydashboard)
 library(shinyjs)
 library(DT)
 library(rhandsontable)
+library(highcharter)
 
   
 shinyUI(function(request){
@@ -19,13 +20,13 @@ shinyUI(function(request){
     sidebar = 
     dashboardSidebar(
       sidebarMenu(
-      menuItem("Search in available primers", tabName = "check_primer", icon = icon("align-left")),
       menuItem("Submit ordered primers", tabName = "submit_primer", icon = icon("cloud-upload")),
-      menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash")),
+      menuItem("BLAST in available primers", tabName = "check_primer", icon = icon("align-left")),
+      menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash"), badgeColor = "red", badgeLabel = "Dev"),
       menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
       menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
       menuItem("Brows available primers", tabName = "browse_primer", icon = icon("database")),
-      menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "red", badgeLabel = "Fasmac")
+      menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "blue", badgeLabel = "Fasmac")
     )),
     body = 
     dashboardBody(
