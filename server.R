@@ -583,19 +583,6 @@ shinyServer(function(input, output, global, session) {
                         grouping = FALSE,
                         pointPlacement = 0,
                         fillOpacity = 0.1) %>%
-          # hc_add_series(#sequence letters
-          #               type = "scatter",
-          #               enableMouseTracking = FALSE,
-          #               data = tibble(x = 0,
-          #                             y = 1:stringr::str_length(isolate(input$blast_query)),
-          #                             name = (stringr::str_split(isolate(input$blast_query), "")[[1]])),
-          #               hcaes(x = x,
-          #                     y = y),
-          #               dataLabels = list(
-          #                 enable = TRUE,
-          #                 format = '<point.name>'
-          #                 )
-          #               ) %>%
           hc_chart(inverted = TRUE, zoomType = "y") %>%
           hc_tooltip(pointFormat = "5'-<i>{point.flagging_seq}</i><b>{point.sseq}</b>-3' <br>5'-{point.placeholder}<b>{point.qseq}</b>-3'<br>Primer: <b>{point.primer_name}</b><br>ID: {point.id}",
                                   hideDelay = 20,
