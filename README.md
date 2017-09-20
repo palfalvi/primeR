@@ -1,13 +1,13 @@
-#_primeR_ is an R-Shiny based website for managing one's laboratory's oligo/primer database with extra features
+# _primeR_ is an R-Shiny based website for managing one's laboratory's oligo/primer database with extra features
 
-##Description
+## Description
 
 _primeR_ is an R-Shiny based websiteto manage your laboratory's oligos/primers. It incorporates a submission page for automatically assign your primers to the database (SQLite), which will generate an autoincrement ID for easier management and storage.
 
 The BLAST tab is BLAST searching your query in the currently available database and filtering the outputs for "primer-compatibility" (e.g. 3' binding).
 
 
-Dependencies
+## Dependencies
 
 _primeR_ uses the following R packages:
 
@@ -24,11 +24,11 @@ dbplyr
 highcharter
 ```
 
-Installation
+## Installation
 
-Contact
+## Contact
 
 [palfalvi.gergo@gmail.com](palfalvi.gergo@gmail.com)
 
-Licence
+## Licence
 

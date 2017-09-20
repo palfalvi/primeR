@@ -45,7 +45,11 @@ shinyServer(function(input, output, global, session) {
                             })
   
   output$browse_primers <- DT::renderDataTable(all_primers() %>% datatable(class = 'cell-border stripe',
-                                                                         rownames = FALSE),
+                                                                         rownames = FALSE,
+                                                                         options = list(searchHighlight = TRUE,
+                                                                         scrollX = TRUE,
+                                                                         fixedColumns = TRUE
+                                                                         )),
                                                                server = TRUE)
   
   
@@ -143,7 +147,10 @@ shinyServer(function(input, output, global, session) {
    output$check_table <- 
      DT::renderDataTable(
      data$check %>% DT::datatable(options = list(pageLength = -1,
-                                                 lengthMenu = FALSE),
+                                                 lengthMenu = FALSE,
+                                                 dom = 't',
+                                                 scrollX = TRUE,
+                                                 fixedColumns = TRUE),
                                   class = 'cell-border stripe',
                                   rownames = FALSE), server = TRUE)
    shinyjs::show("box1")
@@ -181,7 +188,10 @@ shinyServer(function(input, output, global, session) {
        output$check_table <- 
           DT::renderDataTable(
             data$check %>% DT::datatable(options = list(pageLength = -1,
-                                                        lengthMenu = FALSE),
+                                                        lengthMenu = FALSE,
+                                                        scrollX = TRUE,
+                                                        fixedColumns = TRUE
+                                                        ),
                                          class = 'cell-border stripe',
                                          rownames = FALSE),  server = TRUE)
        shinyjs::show("box1")
@@ -278,11 +288,14 @@ shinyServer(function(input, output, global, session) {
     }
     
     output$new_primers <- renderDataTable(data$new_primers %>% mutate(date = lubridate::as_date(date %>% 
-                                                                                                  as.numeric()),
+                                                                                                as.numeric()),
                                                                       empty = empty %>% 
-                                                                        as.logical()) %>% 
+                                                                      as.logical()) %>% 
                                             DT::datatable(options = list(pageLength = -1,
-                                                                         lengthMenu = FALSE),
+                                                                         lengthMenu = FALSE,
+                                                                         scrollX = TRUE,
+                                                                         fixedColumns = TRUE
+                                                                         ),
                                                           class = 'cell-border stripe',
                                                           rownames = FALSE))
     
@@ -490,7 +503,11 @@ shinyServer(function(input, output, global, session) {
                             -placeholder,
                             -qstart,
                             -qend,
-                            -primer_direction) 
+                            -primer_direction), 
+                   options = list(
+                     scrollX = TRUE,
+                     fixedColumns = TRUE
+                   )
                      )
     })
     

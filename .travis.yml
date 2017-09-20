@@ -1,0 +1,3 @@
+language: r
+script:
+  - R -f run_tests.R

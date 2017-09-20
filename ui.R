@@ -20,18 +20,24 @@ shinyUI(function(request){
     sidebar = 
     dashboardSidebar(
       sidebarMenu(
-      menuItem("Submit ordered primers", tabName = "submit_primer", icon = icon("cloud-upload")),
-      menuItem("BLAST in available primers", tabName = "check_primer", icon = icon("align-left")),
-      menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash"), badgeColor = "red", badgeLabel = "Dev"),
-      menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
-      menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
-      menuItem("Brows available primers", tabName = "browse_primer", icon = icon("database")),
-      menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "blue", badgeLabel = "Fasmac")
-    )),
+        menuItem("Welcome", tabName = "main_page", icon = icon("info")),
+        menuItem("Submit ordered primers", tabName = "submit_primer", icon = icon("cloud-upload")),
+        menuItem("BLAST in available primers", tabName = "check_primer", icon = icon("align-left")),
+        menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash"), badgeColor = "red", badgeLabel = "Dev"),
+        menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
+        menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
+        menuItem("Brows available primers", tabName = "browse_primer", icon = icon("database")),
+        menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "blue", badgeLabel = "Fasmac"),
+        menuItem("Report issues", href = "https://github.com/palfalvi/primeR", icon = icon("github"))
+         )),
     body = 
     dashboardBody(
       useShinyjs(),
       tabItems(
+        tabItem(tabName = "main_page",
+                HTML("<h1><center>Welcome to the <i>primeR</i> database</center></h1>
+                     <br><br>
+                     Contact: <a href='https://github.com/palfalvi/primeR'>GitHub</a>")),
         tabItem(tabName = "check_primer",
                 fluidRow(
                   box(

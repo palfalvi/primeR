@@ -7,3 +7,4 @@
 .csv
 .fasta*
 shiny_bookmarks
+packrat/lib*/
