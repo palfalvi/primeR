@@ -241,7 +241,7 @@ read_fasmac <- function(file) {
                             col_skip(),
                             col_skip(),
                             col_skip(),
-                            col_skip(),
+                            col_number(),
                             col_skip(),
                             col_skip(),
                             col_number(),
@@ -251,11 +251,13 @@ read_fasmac <- function(file) {
                          "modified_5",
                          "modified_3",
                          "all_modified",
-                         "conc")) %>%
+                         "buffer",
+                         "mol")) %>%
     mutate(comm = paste(if_else(is.na(modified_5), "", paste("5' modification:", modified_5, "\n")), 
                             if_else(is.na(modified_3), "", paste("3' modification:", modified_3, "\n")), 
                             if_else(is.na(all_modified), "", paste("modification:", all_modified, "\n"))),
-           seq = seq %>% stringr::str_to_lower() %>% stringr::str_replace_all(" ", "")) %>%
+           seq = seq %>% stringr::str_to_lower() %>% stringr::str_replace_all(" ", ""),
+           conc = mol/buffer*10) %>%
     select(name,
            seq,
            conc,

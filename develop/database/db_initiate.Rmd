@@ -3,10 +3,11 @@ title: "Creating SQLite database from csv file of primers"
 output: html_notebook
 ---
 
-```{r}
+```{r setup}
 library(RSQLite)
 library(tidyverse)
 library(dbplyr)
+source("/home/peegee/primeR/helper.R")
 ```
 
 
@@ -20,6 +21,14 @@ Proper columns in future:
 - comments
 - empty #TRUE/FALSE
 
+
+```{r clean}
+
+system("rm /home/peegee/primeR/primers.sqlite")
+system("rm /home/peegee/primeR/primers.fasta*")
+
+```
+
 ```{r open_csv}
 all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id", 
                                                      "primer_name", 
@@ -30,7 +39,7 @@ all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id",
          name = "Nobody",
          date = lubridate::today(),
          comments = " ",
-         empty = TRUE) %>%
+         empty = FALSE) %>%
   select(id,
          primer_name,
          sequence,
@@ -44,10 +53,23 @@ all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id",
 all_primers <-
   all_primers %>% 
   anti_join(all_primers[duplicated(all_primers$id),] )
+
+br_primers <- read_csv("/home/peegee/primeR/br_primers.csv") %>%
+  mutate(empty = if_else(empty, TRUE, FALSE, FALSE),
+         name = "originals") %>%
+  select(id,
+         primer_name,
+         sequence,
+         concentration,
+         comments,
+         date,
+         name,
+         empty
+         )
 ```
 
 ```{r connect}
-con <- dbConnect(SQLite(), "./../../primers.sqlite")
+con <- dbConnect(SQLite(), "/home/peegee/primeR/primers.sqlite")
 ```
 
 ```{r overwrite}
@@ -57,7 +79,19 @@ con <- dbConnect(SQLite(), "./../../primers.sqlite")
 
 dbGetQuery(con, "CREATE TABLE primers
 (
-  id INTEGER PRIMARY KEY, -- Autoincrement
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  primer_name TEXT,
+  sequence TEXT,
+  concentration REAL,
+  comments TEXT,
+  date TEXT,
+  name TEXT,
+  empty INTEGER
+)")
+
+dbGetQuery(con, "CREATE TABLE br_primers
+(
+  id TEXT PRIMARY KEY,
   primer_name TEXT,
   sequence TEXT,
   concentration REAL,
@@ -73,10 +107,28 @@ dbGetQuery(con, "CREATE TABLE primers
 #              overwrite = TRUE)
 
 dbWriteTable(con, "primers", all_primers, append = TRUE)
+
+dbWriteTable(con, "br_primers", br_primers, append = TRUE)
 ```
 
 ```{r check}
 dbGetQuery(con, "SELECT * FROM primers LIMIT 5;")
+```
+
+```{r initiate_fasta}
+for (i in seq_len(con %>% tbl("primers") %>% as_data_frame() %>% nrow()) ){
+  con %>% 
+    tbl("primers") %>% 
+    as_data_frame() %>% 
+    .[i,] %>% 
+    select(id, sequence) -> new_line
+  write_lines(x =paste(">", new_line$id, "\n", new_line$sequence, sep = ""),
+              path = "/home/peegee/primeR/primers.fasta", 
+              append = TRUE)
+}
+
+create_blast_db("/home/peegee/primeR/primers.fasta")
+
 ```
 
 

@@ -255,8 +255,7 @@ shinyServer(function(input, output, global, session) {
   observeEvent(input$upload_new, {
     
     removeModal()
-    showNotification( paste("Primer submitted:\n", "(id:", ")"),
-                      type = "message", duration = 10)
+    
     
     con <- dbConnect(SQLite(), "primers.sqlite")
     dbWriteTable(con, "primers", data$check %>% as_data_frame() %>% 
@@ -270,6 +269,8 @@ shinyServer(function(input, output, global, session) {
                    select(primer_name, sequence, concentration, comments, date, name, empty), 
                  append = TRUE, overwrite = FALSE)  ## check_data and primer database not in same format!!
     
+
+    
     data$new_primers <- con %>% 
       tbl("primers") %>% 
       as_data_frame() %>%
@@ -277,6 +278,9 @@ shinyServer(function(input, output, global, session) {
                   as_data_frame(), by = c("primer_name" = "name",
                                           "sequence" = "seq",
                                           "concentration" = "conc"))
+    
+    showNotification( paste("Primer submitted:\n", "(id:", ")"),
+                      type = "message", duration = 10)
     
     
     
