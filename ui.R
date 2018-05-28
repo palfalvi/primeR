@@ -23,10 +23,10 @@ shinyUI(function(request){
         menuItem("Welcome", tabName = "main_page", icon = icon("info")),
         menuItem("Submit ordered primers", tabName = "submit_primer", icon = icon("cloud-upload")),
         menuItem("BLAST in available primers", tabName = "check_primer", icon = icon("align-left")),
-        menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash"), badgeColor = "red", badgeLabel = "Dev"),
-        menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
-        menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
-        menuItem("Brows available primers", tabName = "browse_primer", icon = icon("database")),
+        menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash")),
+        #menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
+        #menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
+        menuItem("Brows available primers", tabName = "browse_primer", icon = icon("table")),
         menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "blue", badgeLabel = "Fasmac"),
         menuItem("Report issues", href = "https://github.com/palfalvi/primeR", icon = icon("github"))
          )),
@@ -130,16 +130,12 @@ shinyUI(function(request){
                       #selectizeInput("empty_primers", label = "Primer id", choices = all_primers() %>% select(id))
                   ),
                   valueBoxOutput("empty_info",width = 12),
-                  box(width = 4,status = "info", solidHeader = TRUE,
-                      actionButton("finished_primer_btn", "Report finished primer")
+                  box(width = 6,status = "info", solidHeader = TRUE,
+                      actionButton("finished_primer_btn", "Report finished primer", icon = icon("trash"))
                       ),
-                  box(width = 4,status = "info", solidHeader = TRUE,
-                      actionButton("report_reordered", "Report reordered primers"),
-                      checkboxInput("reordered_id", label = "Create new ID", value = TRUE)
-                      ),
-                  box(width = 4,status = "info", solidHeader = TRUE,
-                      actionButton("modify_primer_comment", "Modify primer comment"),
-                      textInput("new_comment", "New comment:")
+                  box(width = 6,status = "info", solidHeader = TRUE,
+                      textInput("new_comment", "New comment:"),
+                      actionButton("modify_primer_comment", "Modify primer comment", icon = icon("comment"))
                       )
                   )
                 ),

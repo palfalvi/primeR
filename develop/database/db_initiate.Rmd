@@ -25,7 +25,7 @@ Proper columns in future:
 ```{r clean}
 
 system("rm /home/peegee/primeR/primers.sqlite")
-system("rm /home/peegee/primeR/primers.fasta*")
+#system("rm /home/peegee/primeR/primers.fasta*")
 
 ```
 
@@ -56,7 +56,8 @@ all_primers <-
 
 br_primers <- read_csv("/home/peegee/primeR/br_primers.csv") %>%
   mutate(empty = if_else(empty, TRUE, FALSE, FALSE),
-         name = "originals") %>%
+         name = "BR primers",
+         id = -((id %>% str_sub(start = 3) %>% as.numeric()) + 900000)) %>%
   select(id,
          primer_name,
          sequence,
@@ -66,6 +67,8 @@ br_primers <- read_csv("/home/peegee/primeR/br_primers.csv") %>%
          name,
          empty
          )
+
+all_primers <- bind_rows(br_primers, all_primers)
 ```
 
 ```{r connect}
@@ -89,17 +92,7 @@ dbGetQuery(con, "CREATE TABLE primers
   empty INTEGER
 )")
 
-dbGetQuery(con, "CREATE TABLE br_primers
-(
-  id TEXT PRIMARY KEY,
-  primer_name TEXT,
-  sequence TEXT,
-  concentration REAL,
-  comments TEXT,
-  date TEXT,
-  name TEXT,
-  empty INTEGER
-)")
+
 
 # dbWriteTable(con, 
 #              name="primers", 
@@ -108,11 +101,13 @@ dbGetQuery(con, "CREATE TABLE br_primers
 
 dbWriteTable(con, "primers", all_primers, append = TRUE)
 
-dbWriteTable(con, "br_primers", br_primers, append = TRUE)
 ```
 
 ```{r check}
 dbGetQuery(con, "SELECT * FROM primers LIMIT 5;")
+
+dbGetQuery(con, "UPDATE primers SET empty = '1' WHERE ID = '-900307'")
+
 ```
 
 ```{r initiate_fasta}

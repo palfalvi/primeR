@@ -39,7 +39,7 @@ shinyServer(function(input, output, global, session) {
                             readFunc = function(x) {
                               con <- dbConnect(SQLite(), x)
                               con %>% tbl("primers") %>% as_data_frame() %>% mutate(date = lubridate::as_date(date %>% as.numeric()),
-                                                                                    empty = empty %>% as.logical()) -> table_out
+                                                                                    empty = empty ) -> table_out
                               
                               return(table_out)
                             })
@@ -348,40 +348,19 @@ shinyServer(function(input, output, global, session) {
     removeModal()
     showNotification( paste("Finished primer submitted:\n", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
                             type = "error", duration = 10)
+    con <- dbConnect(SQLite(), "primers.sqlite")
+    dbExecute(con, paste("UPDATE primers SET empty = 1 WHERE id = ", input$empty_primers,";"))
+    dbDisconnect(con)
     #Add finished comment to primer
   })
   
   observeEvent(input$cancel_finished, {
     removeModal()
   })
+
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   
-  ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  observeEvent(input$report_reordered, {
-    showModal(modalDialog(title = paste("Confirm reordering informations", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
-                          footer = NULL, size = "l", easyClose = FALSE,  {
-                            tagList( 
-                              HTML("WARNING! Your decisions will have consequences!"),
-                              br(),
-                              actionButton("action_finished2", "Confirm", icon = icon("refresh")),
-                              modalButton("Cancel", icon = icon("times")))
-                            
-                          }))
-  })
-  
-  observeEvent(input$action_finished2, {
-    removeModal()
-    showNotification( paste("Reorder primer submitted:\n", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
-                      type = "warning", duration = 10)
-    #Create new entry for reordered primer
-  })
-  
-  observeEvent(input$cancel_finished, {
-    removeModal()
-  })
-  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-  
-  ##Report reordered primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ##Report modified comment~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   observeEvent(input$modify_primer_comment, {
     showModal(modalDialog(title = paste("Confirm comment modification for ", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"), 
                           footer = NULL, size = "l", easyClose = FALSE,  {
@@ -399,14 +378,19 @@ shinyServer(function(input, output, global, session) {
   
   observeEvent(input$action_finished3, {
     removeModal()
-    showNotification( paste("Updated comment:\n", all_primers() %>% filter(ID == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
-                      type = "warning", duration = 10)
-    #Create new entry for reordered primer
+    #Create new entry for comment
+    con <- dbConnect(SQLite(), "primers.sqlite")
+    dbExecute(con, paste("UPDATE primers SET comments = comments || ';", input$new_comment ,"' WHERE id = ", input$empty_primers,";", sep = ""))
+    dbDisconnect(con)
+    
+    showNotification( paste("Primer comment updated:\n", all_primers() %>% filter(id == input$empty_primers) %>% .[,2], "(id:", input$empty_primers, ")"),
+                      type = "error", duration = 10)
   })
   
-  observeEvent(input$cancel_finished, {
-    removeModal()
-  })
+  # observeEvent(input$cancel_finished, {
+  #   removeModal()
+  #   
+  # })
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
   
@@ -436,7 +420,7 @@ shinyServer(function(input, output, global, session) {
     
     #output$blast_test <- renderText(input$blast_query %>% shiny::isolate())
     
-    if (!fasta_validator(input$blast_query %>% isolate() %>% as.character())) {
+    if (!fasta_validator(input$blast_query %>% isolate() %>% as.character() %>% stringr::str_remove_all("[\r\n]"))) {
       showModal(modalDialog(title = "No or invalid entries!",
                             "Please make sure you entered a valid fasta sequnce",
                             easyClose = TRUE,
@@ -449,11 +433,8 @@ shinyServer(function(input, output, global, session) {
       withProgress(message = "BLAST", 
                  detail = "This may take a while",
                  {
-                   for (i in 1:50) {
-                     incProgress(1/50)
-                     Sys.sleep(0.1)
-                   }
-                 })
+
+                   
       data$blast_option <- blast_options(query = isolate(input$blast_query),
                                          blast_db = "primers.fasta",
                                          ungapped = isolate(input$exact_match),
@@ -474,7 +455,8 @@ shinyServer(function(input, output, global, session) {
                 
      file.remove(paste("blast_query/", blast_query_file, sep = ""))
      updateTextAreaInput(session, inputId = "blast_query", value = "")
-            
+                   
+                 }) 
      con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
      data$blast_output <- NULL
      data$blast_output <- con %>% 
@@ -482,6 +464,7 @@ shinyServer(function(input, output, global, session) {
        collect() %>%
        mutate(sseqid = id) %>%
        inner_join(data$blast) %>%
+       filter(!empty) %>%
        mutate(
          primer_len = stringr::str_length(sequence),
          primer_direction = sign(send - sstart),
@@ -520,13 +503,7 @@ shinyServer(function(input, output, global, session) {
     output$blast_graph <- renderHighchart({
       
       withProgress(message = "Summarising results", 
-                   detail = "",
-                   {
-                     for (i in 1:30) {
-                       incProgress(1/30)
-                       Sys.sleep(0.1)
-                     }
-                   })
+                   detail = "",{
       
       con <- dbConnect(RSQLite::SQLite(), "primers.sqlite")
       
@@ -598,6 +575,7 @@ shinyServer(function(input, output, global, session) {
             enable = TRUE,
             format = '<point.name>' 
           ))
+                   })
       
     })
     

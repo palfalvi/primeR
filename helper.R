@@ -223,29 +223,32 @@ create_blast_db <- function(input, dbtype = "nucl") {
 read_fasmac <- function(file) {
   read_csv(file, 
            skip = 1,
-           col_types = cols(col_skip(),
-                            col_skip(),
-                            col_skip(),
-                            col_skip(),
-                            col_character(),
-                            col_skip(),
-                            col_skip(),
-                            col_skip(),
-                            col_character(),
-                            col_skip(),
-                            col_skip(),
-                            col_skip(),
-                            col_character(),
-                            col_character(),
-                            col_character(),
-                            col_skip(),
-                            col_skip(),
-                            col_skip(),
-                            col_number(),
-                            col_skip(),
-                            col_skip(),
-                            col_number(),
-                            col_skip()),
+           col_types = cols(col_skip(), #1
+                            col_skip(), #2
+                            col_skip(), #3
+                            col_skip(), #4
+                            col_skip(), #5
+                            col_skip(), #6
+                            col_skip(), #7
+                            col_character(), #8 Name
+                            col_skip(), #9
+                            col_skip(), #10
+                            col_skip(), #11
+                            col_character(), #12 Seq
+                            col_skip(), #13
+                            col_skip(), #14
+                            col_skip(), #15
+                            col_character(), #16 5'
+                            col_character(), #17 3'
+                            col_character(), #18 mod 
+                            col_skip(), #19
+                            col_skip(), #20
+                            col_skip(), #21
+                            col_number(), #22 buffer
+                            col_skip(), #23
+                            col_skip(), # 24
+                            col_number(), #25 mol
+                            col_skip()), #26
            col_names = c("name",
                          "seq",
                          "modified_5",
@@ -256,8 +259,8 @@ read_fasmac <- function(file) {
     mutate(comm = paste(if_else(is.na(modified_5), "", paste("5' modification:", modified_5, "\n")), 
                             if_else(is.na(modified_3), "", paste("3' modification:", modified_3, "\n")), 
                             if_else(is.na(all_modified), "", paste("modification:", all_modified, "\n"))),
-           seq = seq %>% stringr::str_to_lower() %>% stringr::str_replace_all(" ", ""),
-           conc = mol/buffer*10) %>%
+           seq = seq %>% stringr::str_replace_all(" ", ""),
+           conc = mol/buffer*1000) %>%
     select(name,
            seq,
            conc,
