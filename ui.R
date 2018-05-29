@@ -80,7 +80,7 @@ shinyUI(function(request){
                       status = "info",
                       solidHeader = TRUE,
                       #User
-                      
+                      #uiOutput("user_selection"),
                       selectizeInput("submit_user", "Username:", options = auth_users, choices = c("Select" = "", auth_users)),
                       br(),
                       bookmarkButton("Save bookmark with your name")

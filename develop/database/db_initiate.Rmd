@@ -30,16 +30,13 @@ system("rm /home/peegee/primeR/primers.sqlite")
 ```
 
 ```{r open_csv}
-all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id", 
-                                                     "primer_name", 
-                                                     "sequence", 
-                                                     "concentration"), 
-                        skip = 1, trim_ws = TRUE, na = "NA") %>%
-  mutate(concentration = ifelse(is.na(concentration), yes = 0, no = concentration),
-         name = "Nobody",
+all_primers <- read_csv("/home/peegee/primeR/20180529-priemr_file.csv", 
+                        trim_ws = TRUE, na = "#N/A") %>%
+  select(id, primer_name, sequence, conc, name, comments) %>%
+  mutate(concentration = as.numeric(ifelse(is.na(conc), yes = 0, no = conc)),
          date = lubridate::today(),
-         comments = " ",
-         empty = FALSE) %>%
+         empty = FALSE,
+         sequence = sequence %>% str_remove_all(" ") %>% str_remove_all("q") %>% str_remove_all("/*") %>% str_replace_all("i", "g")) %>%
   select(id,
          primer_name,
          sequence,
@@ -49,6 +46,7 @@ all_primers <- read_csv("/home/peegee/primeR/primers.csv", col_names = c("id",
          name,
          empty
          )
+  
 
 all_primers <-
   all_primers %>% 
@@ -68,7 +66,8 @@ br_primers <- read_csv("/home/peegee/primeR/br_primers.csv") %>%
          empty
          )
 
-all_primers <- bind_rows(br_primers, all_primers)
+all_primers <- bind_rows(br_primers, all_primers) %>%
+  filter(sequence != "")
 ```
 
 ```{r connect}
@@ -105,8 +104,6 @@ dbWriteTable(con, "primers", all_primers, append = TRUE)
 
 ```{r check}
 dbGetQuery(con, "SELECT * FROM primers LIMIT 5;")
-
-dbGetQuery(con, "UPDATE primers SET empty = '1' WHERE ID = '-900307'")
 
 ```
 

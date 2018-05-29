@@ -30,7 +30,15 @@ shinyServer(function(input, output, global, session) {
               icon = icon(name = "flask", lib = "font-awesome"), width = 12
               )
   })
-    
+ 
+  ##Update user list based on fasta timestamp~~~~~~~~~~~~~~~~~~~~~
+  
+  auth_users <- reactiveFileReader(1000, NULL, 'users.csv', read_csv)
+  observeEvent(auth_users(), {
+    updateSelectizeInput(session, "submit_user", options = auth_users(), choices = c("Select" = "", auth_users()))
+  })
+  ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
     
   ## Data table to browse primers~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   all_primers <- shiny::reactiveFileReader(1000,
@@ -303,12 +311,7 @@ shinyServer(function(input, output, global, session) {
                                                           class = 'cell-border stripe',
                                                           rownames = FALSE))
     
-    # data$check %>% 
-    #   as_data_frame() %>%
-    #   glue::glue_data('\n>{name}\n{seq}') %>%
-    #   rlang::as_character() %>%
-    #   write_file(path = "primers.fasta",
-    #              append = TRUE)
+
    
     shinyjs::reset("file_primer_update")
     shinyjs::hide("box1")
@@ -319,11 +322,7 @@ shinyServer(function(input, output, global, session) {
     output$manual_input <- renderRHandsontable(
       rhandsontable(manualIn, readOnly = FALSE, selectCallback = TRUE, width = '100%', colHeaders = c("Primer Name", "Primer Sequence", "Concentration (μM)", "Comments"))
     )
-    
-    ## Append to fasta file with glue?
-    
-    ## Needs proper table format
-    ## Needs output for new ids and primers 
+
   })
     
     
@@ -354,9 +353,6 @@ shinyServer(function(input, output, global, session) {
     #Add finished comment to primer
   })
   
-  observeEvent(input$cancel_finished, {
-    removeModal()
-  })
 
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
   
@@ -387,10 +383,7 @@ shinyServer(function(input, output, global, session) {
                       type = "error", duration = 10)
   })
   
-  # observeEvent(input$cancel_finished, {
-  #   removeModal()
-  #   
-  # })
+
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
   
