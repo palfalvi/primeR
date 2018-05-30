@@ -26,7 +26,7 @@ shinyUI(function(request){
         menuItem("Submit finished primers", tabName = "empty_primer", icon = icon("trash")),
         #menuItem("Create new primers", tabName = "create_primer", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
         #menuItem("Create CRISPR gRNA", tabName = "create_grna", icon = icon("cogs"), badgeColor = "red", badgeLabel = "soon"),
-        menuItem("Brows available primers", tabName = "browse_primer", icon = icon("table")),
+        menuItem("Browse available primers", tabName = "browse_primer", icon = icon("table")),
         menuItem("Order primers", href = "https://www.bio.fasmac.co.jp/FasmacWebSystem/ja-JP/Account/Login.mvc", icon = icon("rocket"), badgeColor = "blue", badgeLabel = "Fasmac"),
         menuItem("Report issues", href = "https://github.com/palfalvi/primeR", icon = icon("github"))
          )),

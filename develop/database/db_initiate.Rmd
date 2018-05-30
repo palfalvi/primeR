@@ -25,7 +25,7 @@ Proper columns in future:
 ```{r clean}
 
 system("rm /home/peegee/primeR/primers.sqlite")
-#system("rm /home/peegee/primeR/primers.fasta*")
+system("rm /home/peegee/primeR/primers.fasta*")
 
 ```
 

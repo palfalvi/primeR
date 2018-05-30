@@ -33,9 +33,9 @@ shinyServer(function(input, output, global, session) {
  
   ##Update user list based on fasta timestamp~~~~~~~~~~~~~~~~~~~~~
   
-  auth_users <- reactiveFileReader(1000, NULL, 'users.csv', read_csv)
-  observeEvent(auth_users(), {
-    updateSelectizeInput(session, "submit_user", options = auth_users(), choices = c("Select" = "", auth_users()))
+  auth_users_update <- reactiveFileReader(1000, NULL, 'users.csv', read_csv)
+  observeEvent(auth_users_update(), {
+    updateSelectizeInput(session, "submit_user", options = auth_users_update(), choices = c("Select" = "", auth_users_update()))
   })
   ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
@@ -413,7 +413,7 @@ shinyServer(function(input, output, global, session) {
     
     #output$blast_test <- renderText(input$blast_query %>% shiny::isolate())
     
-    if (!fasta_validator(input$blast_query %>% isolate() %>% as.character() %>% stringr::str_remove_all("[\r\n]"))) {
+    if (!fasta_validator(input$blast_query %>% isolate() %>% as.character() %>% stringr::str_replace_all("[\r\n]", ""))) {
       showModal(modalDialog(title = "No or invalid entries!",
                             "Please make sure you entered a valid fasta sequnce",
                             easyClose = TRUE,
@@ -431,8 +431,7 @@ shinyServer(function(input, output, global, session) {
       data$blast_option <- blast_options(query = isolate(input$blast_query),
                                          blast_db = "primers.fasta",
                                          ungapped = isolate(input$exact_match),
-                                         evalue = isolate(input$blast_evalue))#,
-                #evalue = input$blast_evalue)
+                                         evalue = isolate(input$blast_evalue))
                 
       blast_query_file <- paste("blast_input_", Sys.time() %>% as.numeric(),".fasta", sep = "")
                 
@@ -502,8 +501,6 @@ shinyServer(function(input, output, global, session) {
       
         highchart() %>%
           hc_yAxis(title = list(text = "Input sequence (bp)"),
-                   min = 0,
-                   max = stringr::str_length(isolate(input$blast_query)),
                    title= "Query sequence",
                    allowDeciamls = FALSE,
                    crossHair = TRUE,
