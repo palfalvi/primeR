@@ -108,17 +108,25 @@ dbGetQuery(con, "SELECT * FROM primers LIMIT 5;")
 ```
 
 ```{r initiate_fasta}
-for (i in seq_len(con %>% tbl("primers") %>% as_data_frame() %>% nrow()) ){
-  con %>% 
-    tbl("primers") %>% 
-    as_data_frame() %>% 
-    .[i,] %>% 
-    select(id, sequence) -> new_line
-  write_lines(x =paste(">", new_line$id, "\n", new_line$sequence, sep = ""),
-              path = "/home/peegee/primeR/primers.fasta", 
-              append = TRUE)
-}
+#for (i in seq_len(con %>% tbl("primers") %>% as_data_frame() %>% nrow()) ){
+#  con %>% 
+#    tbl("primers") %>% 
+#    as_data_frame() %>% 
+#    .[i,] %>% 
+#    select(id, sequence) -> new_line
+#  write_lines(x =paste(">", new_line$id, "\n", new_line$sequence, sep = ""),
+#              path = "/home/peegee/primeR/primers.fasta", 
+#              append = TRUE)
+#}
 
+con %>% 
+  tbl("primers") %>% 
+  as_data_frame() %>% 
+  select(id, sequence) %>% 
+  rename("name" = "id") %>% 
+  as.data.frame() %>% 
+  seqRFLP::dataframe2fas("primers.fasta")
+  
 create_blast_db("/home/peegee/primeR/primers.fasta")
 
 ```
